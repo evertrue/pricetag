@@ -2,29 +2,11 @@
 
 ![Price Tag](https://img.shields.io/badge/price-25.33%2Fhr-lightgray.svg "Price Tag")
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/pricetag`. To experiment with that code, run `bin/console` for an interactive prompt.
-
-TODO: Delete this and the text above, and describe your gem
-
-## Installation
-
-Add this line to your application's Gemfile:
-
-```ruby
-gem 'pricetag'
-```
-
-And then execute:
-
-    $ bundle
-
-Or install it yourself as:
-
-    $ gem install pricetag
+A tiny web server that serves up SVG shield price tags for your Mesos apps. The number is based on CPUs requested in the Singularity `request` object.
 
 ## Usage
 
-TODO: Write usage instructions here
+Build it into a docker container.
 
 ## Development
 
@@ -34,8 +16,7 @@ To install this gem onto your local machine, run `bundle exec rake install`. To 
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/pricetag.
-
+Bug reports and pull requests are welcome on GitHub at https://github.com/evertrue/pricetag.
 
 ## License
 
