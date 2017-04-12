@@ -8,11 +8,37 @@ A tiny web server that serves up SVG shield price tags for your Mesos apps. The 
 
 Build it into a docker container.
 
-## Development
+## Building Using Docker
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+```
+docker build --build-arg BUNDLE_GEM__FURY__IO=$BUNDLE_GEM__FURY__IO -t registry.evertrue.com/evertrue/pricetag:$(date +%s)_$(git rev-parse --short HEAD) ./
+```
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+## Running the Docker container
+
+### First you need to run the Vault dev server in a separate terminal:
+
+```
+vault server -dev -dev-listen-address=$(ifconfig en0 | grep 'inet\b' | awk '{print $2}'):8200 -dev-root-token-id=FAKE_ROOT_TOKEN
+```
+
+### Load some data into the Vault dev server
+
+```
+VAULT_ADDR="http://$(ifconfig en0 | grep 'inet\b' | awk '{print $2}'):8200" VAULT_TOKEN=FAKE_ROOT_TOKEN vault-update -p secret/default/pricetag "{\"SENTRY_DSN\": \"FAKE_SENTRY_DSN\", \"MESOS_AGENT_INSTANCE_TYPE\": \"c3.4xlarge\", \"SINGULARITY_API\": \"http://stage-singularity.evertrue.com/api\"}"
+```
+
+### Finally, run the docker container
+
+```
+docker run -e RACK_ENV=deployment -e PASSENGER_APP_ENV=staging -e VAULT_TOKEN=FAKE_ROOT_TOKEN -e VAULT_ADDR="http://$(ifconfig en0 | grep 'inet\b' | awk '{print $2}'):8200" -p 8080:8080 registry.evertrue.com/evertrue/pricetag:$(docker images | grep pricetag | awk '{print $2}' | head -n 1)
+```
+
+You should now be able to access it using a URL like this:
+
+```
+http://localhost:8080/singularity.svg?request=stage-apache-zeppelin&env=stage
+```
 
 ## Contributing
 

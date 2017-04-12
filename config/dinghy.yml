@@ -1,0 +1,50 @@
+---
+_request: &request_default
+  requestType: SERVICE
+  instances: 1
+  rackSensitive: true
+  loadBalanced: true
+  owners: ["<%= ENV['USER'] %>"]
+_deploy: &deploy_default
+  application: pricetag
+  harbormaster_url: https://harbormaster.evertrue.com
+  containerInfo:
+    type: "DOCKER"
+    volumes:
+      - containerPath: "/etc/container_environment_ro"
+        hostPath: "/etc/container_environment"
+        mode: "RO"
+    docker:
+      image: "registry.evertrue.com/evertrue/pricetag:<%= ENV['BUILD_TAG'] or raise "dinghy.yml requires BUILD_TAG" %>"
+      privileged: false
+      network: "BRIDGE"
+      portMappings:
+        - containerPortType: "LITERAL"
+          containerPort: 8080
+          hostPortType: "FROM_OFFER"
+          hostPort: 0
+          protocol: "tcp"
+  resources:
+    cpus: 0.1
+    memoryMb: 128
+    numPorts: 1
+  deployHealthTimeoutSeconds: 100
+  healthcheckUri: "/status"
+  serviceBasePath: "/"
+  loadBalancerGroups: ["pricetag"]
+
+staging: &staging
+  api_url: https://stage-singularity.evertrue.com/api
+  request:
+    <<: *request_default
+    id: stage-pricetag
+  deploy:
+    <<: *deploy_default
+
+production: &production
+  api_url: https://singularity.evertrue.com/api
+  request:
+    <<: *request_default
+    id: pricetag
+  deploy:
+    <<: *deploy_default

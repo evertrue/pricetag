@@ -1,0 +1,6 @@
+nginx_enabled: true
+vault_env:
+  secret/default/pricetag:
+    - MESOS_AGENT_INSTANCE_TYPE
+    - SINGULARITY_API
+    - SENTRY_DSN
