@@ -14,11 +14,6 @@ node {
     stage 'Push Docker image'
       sh "docker push ${name}:${safeBranchName}-${env.BUILD_ID}"
 
-      if (env.BRANCH_NAME == 'master' ) {
-        sh "docker tag ${name}:${safeBranchName}-${env.BUILD_ID} ${name}:latest"
-        sh "docker push ${name}:latest"
-      }
-
     slackSend color: 'good', message: "${env.JOB_NAME} - #${env.BUILD_NUMBER} Success (<${env.BUILD_URL}|Open>)"
   } catch (e) {
     currentBuild.result = "FAILED"
