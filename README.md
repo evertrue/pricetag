@@ -1,6 +1,6 @@
 # Pricetag
 
-![Price Tag](https://img.shields.io/badge/price-25.33%2Fhr-lightgray.svg "Price Tag")
+Staging: ![Staging Price Tag](https://stage-pricetag.evertrue.com/singularity.svg?request=stage-pricetag "Staging Price Tag") Production: ![Production Price Tag](https://pricetag.evertrue.com/singularity.svg?request=pricetag "Production Price Tag")
 
 A tiny web server that serves up SVG shield price tags for your Mesos apps. The number is based on CPUs requested in the Singularity `request` object.
 
