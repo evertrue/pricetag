@@ -40,6 +40,14 @@ You should now be able to access it using a URL like this:
 http://localhost:8080/singularity.svg?request=stage-apache-zeppelin&env=stage
 ```
 
+## Deployment
+
+Use Dinghy:
+
+```
+BUILD_TAG=master-3 bundle exec dinghy deploy staging
+```
+
 ## Contributing
 
 Bug reports and pull requests are welcome on GitHub at https://github.com/evertrue/pricetag.
