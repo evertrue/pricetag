@@ -1,0 +1,14 @@
+Documentation:
+  Enabled: false
+
+LineLength:
+  Max: 100
+
+MethodLength:
+  Max: 50
+
+ClassLength:
+  Max: 150
+
+AbcSize:
+  Max: 30
