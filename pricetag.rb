@@ -8,6 +8,9 @@ missing = required_env_keys.select { |key| ENV[key].nil? || ENV[key].empty? }
 fail "Missing required ENV vars! #{missing.join ' '}" if missing.any?
 
 class Pricetag < Sinatra::Application
+  EC2_RATE_TYPE = :reserved
+  # EC2_RATE_TYPE = :on_demand
+
   # get '/tag/repo/*' do
   #   full_repo_path = params[:splat].first.split '/'
   #   git_username = full_repo_path[0]
@@ -40,6 +43,7 @@ class Pricetag < Sinatra::Application
     content_type 'image/svg+xml', charset: 'utf-8'
 
     @singularity_request_id = params['request']
+    @region = params['region'] || 'us-east-1'
 
     Unirest.get("https://img.shields.io/badge/price-$#{cost}/month-lightgray.svg").body
   end
@@ -60,24 +64,53 @@ class Pricetag < Sinatra::Application
     flavor = config[:mesos_agent_instance_type]
 
     instances = singularity_request['request']['instances']
-    cpus = singularity_resources['cpus']
+    requested_cpus = singularity_resources['cpus']
 
     # TODO: Figure out what to do about memory
     # memory = singularity_resources['memoryMb']
 
-    ((on_demand_rate(flavor) * cpus * instances) * 24 * 30.4).round 2
+    (requested_cpus / total_cpus * rate(flavor) * instances * 24 * 30.4).round 2
+  end
+
+  def rate(flavor)
+    return reserved_rate(flavor) if config[:ec2_rate_type] == :reserved
+    on_demand_rate flavor
+  end
+
+  def reserved_rate(flavor)
+    terms = region_pricing['instanceTypes'].find { |it| it['type'] == flavor }['terms']
+    purchase_options =
+      terms.find { |term| term['term'] == config[:reservation_term] }['purchaseOptions']
+    value_columns =
+      purchase_options.find { |po| po['purchaseOption'] == config[:reservation_po] }['valueColumns']
+    value_columns.find { |col| col['name'] == 'effectiveHourly' }['prices']['USD'].to_f
   end
 
   def on_demand_rate(flavor)
-    ec2_pricing = Unirest.get('http://aws.amazon.com/ec2/pricing/pricing-on-demand-instances.json').body
-    region_pricing = ec2_pricing['config']['regions'].find { |r| r['region'] == 'us-east-1' }
+    sizes = region_pricing['instanceTypes'].map { |it| it['sizes'] }.flatten
+    value_columns = sizes.find { |s| s['size'] == flavor }['valueColumns']
+    value_columns.find { |col| col['name'] == 'linux' }['prices']['USD'].to_f
+  end
 
-    sizes = region_pricing['instanceTypes'].find do |it|
-      it['sizes'].map { |s| s['size'] }.include?(flavor)
-    end
+  def region_pricing
+    ec2_pricing['config']['regions'].find { |r| r['region'] == @region }
+  end
 
-    value_columns = sizes['sizes'].find { |s| s['size'] == flavor }['valueColumns']
-    value_columns.find { |c| c['name'] == 'linux' }['prices']['USD'].to_f
+  def ec2_pricing
+    # Don't read this code. It will make your eyes bleed.
+    # But seriously. This reads the pricing from AWS, which is actually in JS, strips off the
+    # function call code, uses a regex to convert it to JSON, then parses it.
+    #
+    # If it breaks...I'm not surprised.
+
+    pricing_js =
+      if config[:ec2_rate_type] == :reserved
+        Unirest.get('https://a0.awsstatic.com/pricing/1/ec2/ri-v2/linux-unix-shared.min.js').body
+      else
+        Unirest.get('https://a0.awsstatic.com/pricing/1/ec2/linux-od.min.js').body
+      end
+
+    JSON.parse pricing_js.split('callback(')[1].sub(');', '').gsub(/(\w+):/, '"\1":')
   end
 
   def singularity_resources
@@ -87,6 +120,33 @@ class Pricetag < Sinatra::Application
   def singularity_active_deploy
     singularity_request['activeDeploy'] ||
       fail("Request #{request_id} has no active deploy")
+  end
+
+  def singularity_active_tasks
+    response =
+      Unirest.get(
+        "#{config[:singularity_api]}/history/request/#{@singularity_request_id}/tasks/active"
+      )
+    fail "Bad Singularity response: #{response.inspect}" if response.code != 200
+    return response.body if response.body.any?
+    fail "The request #{@singularity_request_id} has no active tasks"
+  end
+
+  def total_cpus
+    # Sum up the total available CPUs on all agents where the task is currently running
+
+    request_mesos_agents.inject(0) { |a, e| a + e['resources']['cpus'] }
+  end
+
+  def request_mesos_agents
+    request_hostnames = singularity_active_tasks.map do |task|
+      task['taskId']['sanitizedHost'].tr '_', '-'
+    end
+    all_mesos_agents.select { |agent| request_hostnames.include? agent['host'] }
+  end
+
+  def all_mesos_agents
+    @all_mesos_agents ||= Unirest.get("#{config[:singularity_api]}/slaves").body
   end
 
   def singularity_request
@@ -101,7 +161,10 @@ class Pricetag < Sinatra::Application
   def config
     {
       singularity_api: ENV['SINGULARITY_API'],
-      mesos_agent_instance_type: ENV['MESOS_AGENT_INSTANCE_TYPE']
+      mesos_agent_instance_type: ENV['MESOS_AGENT_INSTANCE_TYPE'],
+      ec2_rate_type: EC2_RATE_TYPE,
+      reservation_term: 'yrTerm1Standard',
+      reservation_po: 'partialUpfront'
     }
   end
 end
