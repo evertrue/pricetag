@@ -2,10 +2,11 @@ source 'https://rubygems.org'
 
 # Specify your gem's dependencies in pricetag.gemspec
 gem 'sinatra'
+gem 'sinatra-contrib', require: 'sinatra/json'
 gem 'rasem'
 gem 'unirest'
 gem 'aws-pricing'
-gem 'sentry-raven'
+gem 'sentry-raven', require: 'raven'
 gem 'vault'
 
 group :development do

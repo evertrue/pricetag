@@ -1,8 +1,3 @@
-require 'sinatra'
-require 'rasem'
-require 'unirest'
-require 'raven'
-
 required_env_keys = %w(
   SINGULARITY_API
   SENTRY_DSN
