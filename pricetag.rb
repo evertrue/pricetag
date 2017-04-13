@@ -45,7 +45,8 @@ class Pricetag < Sinatra::Application
     @singularity_request_id = params['request']
     @region = params['region'] || 'us-east-1'
 
-    Unirest.get("https://img.shields.io/badge/price-$#{cost}/month-lightgray.svg").body
+    # Unirest.get("https://img.shields.io/badge/price-$#{cost}/month-lightgray.svg").body
+    Svgshield.new('price', "$#{format_cost}/month", 'lightgray').to_s
   end
 
   get '/status' do
@@ -60,16 +61,24 @@ class Pricetag < Sinatra::Application
 
   private
 
+  def format_cost
+    return cost if cost < 100.0
+    return cost.round 0 if cost < 1000.0
+    (cost / 1000.0).round(2).to_s + 'K'
+  end
+
   def cost
-    flavor = config[:mesos_agent_instance_type]
+    @cost ||= begin
+      flavor = config[:mesos_agent_instance_type]
 
-    instances = singularity_request['request']['instances']
-    requested_cpus = singularity_resources['cpus']
+      instances = singularity_request['request']['instances']
+      requested_cpus = singularity_resources['cpus']
 
-    # TODO: Figure out what to do about memory
-    # memory = singularity_resources['memoryMb']
+      # TODO: Figure out what to do about memory
+      # memory = singularity_resources['memoryMb']
 
-    (requested_cpus / total_cpus * rate(flavor) * instances * 24 * 30.4).round 2
+      (requested_cpus / total_cpus * rate(flavor) * instances * 24 * 30.4).round 2
+    end
   end
 
   def rate(flavor)

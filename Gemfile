@@ -8,6 +8,7 @@ gem 'unirest'
 gem 'aws-pricing'
 gem 'sentry-raven', require: 'raven'
 gem 'vault'
+gem 'svgshield'
 
 group :development do
   gem 'pry'
