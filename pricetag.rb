@@ -40,13 +40,17 @@ class Pricetag < Sinatra::Application
   end
 
   get '/singularity.svg' do
+    logger.info 'First hint of a request'
+
     content_type 'image/svg+xml', charset: 'utf-8'
 
     @singularity_request_id = params['request']
     @region = params['region'] || 'us-east-1'
 
     # Unirest.get("https://img.shields.io/badge/price-$#{cost}/month-lightgray.svg").body
-    Svgshield.new('price', "$#{format_cost}/month", 'lightgray').to_s
+    img = Svgshield.new('price', "$#{format_cost}/month", 'lightgray').to_s
+    logger.info 'Finished processing request'
+    img
   end
 
   get '/status' do
@@ -77,7 +81,9 @@ class Pricetag < Sinatra::Application
       # TODO: Figure out what to do about memory
       # memory = singularity_resources['memoryMb']
 
-      (requested_cpus / total_cpus * rate(flavor) * instances * 24 * 30.4).round 2
+      c = (requested_cpus / total_cpus * rate(flavor) * instances * 24 * 30.4).round 2
+      logger.info "Computed cost: #{c}"
+      c
     end
   end
 
@@ -112,12 +118,16 @@ class Pricetag < Sinatra::Application
     #
     # If it breaks...I'm not surprised.
 
+    logger.info 'Fetching pricing from amazon'
+
     pricing_js =
       if config[:ec2_rate_type] == :reserved
         Unirest.get('https://a0.awsstatic.com/pricing/1/ec2/ri-v2/linux-unix-shared.min.js').body
       else
         Unirest.get('https://a0.awsstatic.com/pricing/1/ec2/linux-od.min.js').body
       end
+
+    logger.info 'Done fetching pricing'
 
     JSON.parse pricing_js.split('callback(')[1].sub(');', '').gsub(/(\w+):/, '"\1":')
   end
@@ -132,10 +142,12 @@ class Pricetag < Sinatra::Application
   end
 
   def singularity_active_tasks
+    logger.info 'Fetching active tasks from Singularity'
     response =
       Unirest.get(
         "#{config[:singularity_api]}/history/request/#{@singularity_request_id}/tasks/active"
       )
+    logger.info 'Done fetching active tasks from Singularity'
     fail "Bad Singularity response: #{response.inspect}" if response.code != 200
     return response.body if response.body.any?
     fail "The request #{@singularity_request_id} has no active tasks"
