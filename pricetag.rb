@@ -176,7 +176,7 @@ class Pricetag < Sinatra::Application
 
   def singularity_active_deploy
     singularity_request['activeDeploy'] ||
-      fail("Request #{request_id} has no active deploy")
+      halt(404, "The request #{@singularity_request_id} has no active deploy")
   end
 
   def singularity_active_tasks
@@ -188,6 +188,7 @@ class Pricetag < Sinatra::Application
     logger.info 'Done fetching active tasks from Singularity'
     fail "Bad Singularity response: #{response.inspect}" if response.code != 200
     return response.body if response.body.any?
+    halt 404, "The request #{@singularity_request_id} has no active tasks"
   end
 
   def request_mesos_agents
