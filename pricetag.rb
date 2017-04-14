@@ -47,6 +47,8 @@ class Pricetag < Sinatra::Application
     @singularity_request_id = params['request']
     @region = params['region'] || 'us-east-1'
 
+    logger.info "Request ID: #{@singularity_request_id} (region: #{@region})"
+
     # Unirest.get("https://img.shields.io/badge/price-$#{cost}/month-lightgray.svg").body
     img = Svgshield.new('price', "$#{format_cost}/month", 'lightgray').to_s
     logger.info 'Finished processing request'
@@ -82,6 +84,12 @@ class Pricetag < Sinatra::Application
       # memory = singularity_resources['memoryMb']
 
       c = (requested_cpus / total_cpus * rate(flavor) * instances * 24 * 30.4).round 2
+
+      logger.info "Requested CPUs: #{requested_cpus}"
+      logger.info "Total CPUs: #{total_cpus}"
+      logger.info "#{config[:ec2_rate_type]} rate (for #{flavor}): #{discovered_rate}"
+      logger.info "Instances: #{instances}"
+
       logger.info "Computed cost: #{c}"
       c
     end
@@ -98,13 +106,17 @@ class Pricetag < Sinatra::Application
       terms.find { |term| term['term'] == config[:reservation_term] }['purchaseOptions']
     value_columns =
       purchase_options.find { |po| po['purchaseOption'] == config[:reservation_po] }['valueColumns']
-    value_columns.find { |col| col['name'] == 'effectiveHourly' }['prices']['USD'].to_f
+    r = value_columns.find { |col| col['name'] == 'effectiveHourly' }['prices']['USD'].to_f
+    logger.info "Discovered reserved rate: #{r}"
+    r
   end
 
   def on_demand_rate(flavor)
     sizes = region_pricing['instanceTypes'].map { |it| it['sizes'] }.flatten
     value_columns = sizes.find { |s| s['size'] == flavor }['valueColumns']
-    value_columns.find { |col| col['name'] == 'linux' }['prices']['USD'].to_f
+    r = value_columns.find { |col| col['name'] == 'linux' }['prices']['USD'].to_f
+    logger.info "Discovered on-demand rate: #{r}"
+    r
   end
 
   def region_pricing
@@ -118,7 +130,7 @@ class Pricetag < Sinatra::Application
     #
     # If it breaks...I'm not surprised.
 
-    logger.info 'Fetching pricing from amazon'
+    logger.info 'Fetching pricing from AWS'
 
     pricing_js =
       if config[:ec2_rate_type] == :reserved
@@ -129,7 +141,9 @@ class Pricetag < Sinatra::Application
 
     logger.info 'Done fetching pricing'
 
-    JSON.parse pricing_js.split('callback(')[1].sub(');', '').gsub(/(\w+):/, '"\1":')
+    r = JSON.parse pricing_js.split('callback(')[1].sub(');', '').gsub(/(\w+):/, '"\1":')
+    logger.info 'Done parsing pricing'
+    r
   end
 
   def singularity_resources
