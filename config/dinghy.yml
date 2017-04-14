@@ -31,7 +31,7 @@ _deploy: &deploy_default
   deployHealthTimeoutSeconds: 100
   healthcheckUri: "/status"
   serviceBasePath: "/"
-  loadBalancerGroups: ["pricetag"]
+  loadBalancerGroups: ["pricetag-public"]
 
 staging: &staging
   api_url: https://stage-singularity.evertrue.com/api
