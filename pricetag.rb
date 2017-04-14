@@ -80,20 +80,43 @@ class Pricetag < Sinatra::Application
       # For some reason some requests just don't have an instances count O.o
       instances = singularity_request['request']['instances'] || 1
       requested_cpus = singularity_resources['cpus']
-
-      # TODO: Figure out what to do about memory
-      # memory = singularity_resources['memoryMb']
-
-      c = (requested_cpus / total_cpus * rate(flavor) * instances * 24 * 30.4).round 2
+      requested_mem = singularity_resources['memoryMb']
+      discovered_rate = rate flavor
 
       logger.info "Requested CPUs: #{requested_cpus}"
       logger.info "Total CPUs: #{total_cpus}"
       logger.info "#{config[:ec2_rate_type]} rate (for #{flavor}): #{discovered_rate}"
       logger.info "Instances: #{instances}"
 
+      cpu_consumption_ratio = requested_cpus / total_cpus
+      mem_consumption_ratio = requested_mem / total_memory
+
+      basis_ratio =
+        if cpu_consumption_ratio > mem_consumption_ratio
+          logger.info 'Basing price on CPU ratio'
+          cpu_consumption_ratio
+        else
+          logger.info 'Basing price on memory ratio'
+          mem_consumption_ratio
+        end
+
+      # Only base the cost on the thing we're using the highest percentage of
+      c = (basis_ratio * discovered_rate * instances * 24 * 30.4).round 2
       logger.info "Computed cost: #{c}"
       c
     end
+  end
+
+  def total_cpus
+    # Sum up the total available CPUs on all agents where the task is currently running
+
+    @total_cpus ||= request_mesos_agents.inject(0) { |a, e| a + e['resources']['cpus'] }
+  end
+
+  def total_memory
+    # Sum up the total available CPUs on all agents where the task is currently running
+
+    @total_memory ||= request_mesos_agents.inject(0) { |a, e| a + e['resources']['mem'] }
   end
 
   def rate(flavor)
@@ -165,13 +188,6 @@ class Pricetag < Sinatra::Application
     logger.info 'Done fetching active tasks from Singularity'
     fail "Bad Singularity response: #{response.inspect}" if response.code != 200
     return response.body if response.body.any?
-    fail "The request #{@singularity_request_id} has no active tasks"
-  end
-
-  def total_cpus
-    # Sum up the total available CPUs on all agents where the task is currently running
-
-    request_mesos_agents.inject(0) { |a, e| a + e['resources']['cpus'] }
   end
 
   def request_mesos_agents
