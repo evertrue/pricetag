@@ -77,7 +77,8 @@ class Pricetag < Sinatra::Application
     @cost ||= begin
       flavor = config[:mesos_agent_instance_type]
 
-      instances = singularity_request['request']['instances']
+      # For some reason some requests just don't have an instances count O.o
+      instances = singularity_request['request']['instances'] || 1
       requested_cpus = singularity_resources['cpus']
 
       # TODO: Figure out what to do about memory
