@@ -39,13 +39,18 @@ class Pricetag < Sinatra::Application
     msg
   end
 
-  get '/singularity.svg' do
+  before do
+    cache_control :public, max_age: 7200
+  end
+
+  get '/singularity/:request/price.svg' do
     logger.info 'First hint of a request'
 
-    content_type 'image/svg+xml', charset: 'utf-8'
-
-    @singularity_request_id = params['request']
+    @singularity_request_id = request_rainbow_table[params['request']] ||
+      halt(404, "Request <strong>#{params['request']}</strong> is not valid")
     @region = params['region'] || 'us-east-1'
+
+    content_type 'image/svg+xml', charset: 'utf-8'
 
     logger.info "Request ID: #{@singularity_request_id} (region: #{@region})"
 
@@ -66,6 +71,22 @@ class Pricetag < Sinatra::Application
   end
 
   private
+
+  def request_rainbow_table
+    # This lets us take hashes of request IDs instead of real request IDs, adding a modicum of
+    # security that allows us to exist on the public internet.
+
+    active_requests.each_with_object({}) do |request, m|
+      m[Digest::SHA256.hexdigest request['request']['id']] = request['request']['id']
+    end
+  end
+
+  def active_requests
+    response =
+      Unirest.get("#{config[:singularity_api]}/requests/active")
+    return response.body if response.code == 200
+    fail "Bad Singularity response: #{response.inspect}"
+  end
 
   def format_cost
     return cost if cost < 100.0

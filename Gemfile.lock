@@ -11,6 +11,7 @@ GEM
     byebug (9.0.6)
     coderay (1.1.1)
     color (1.8)
+    digest (0.0.1)
     dinghy (3.0.2)
       awesome_print
       hashie
@@ -88,6 +89,7 @@ PLATFORMS
 DEPENDENCIES
   aws-pricing
   byebug
+  digest
   dinghy (~> 3.0)!
   pry
   rasem
